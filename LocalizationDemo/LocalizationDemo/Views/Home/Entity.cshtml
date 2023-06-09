@@ -1,0 +1,7 @@
+@using Microsoft.AspNetCore.Mvc.Localization
+@inherits Microsoft.AspNetCore.Mvc.Razor.RazorPage<LocalizationDemo.TableStructure>
+<div>
+    @foreach (var item in Model.Columns) {
+        <p>@item.ColumnName</p>
+    }
+</div>

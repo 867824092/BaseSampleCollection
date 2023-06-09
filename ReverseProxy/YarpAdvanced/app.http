@@ -1,0 +1,14 @@
+###
+GET http://www.aspnetcore.com:5109/?path=123456
+
+###
+POST http://www.aspnetcore.com:5109/
+Content-Type: application/json
+
+{
+    "name": "123456"
+}
+
+###
+GET http://www.aspnetcore.com:5109/proxy
+
