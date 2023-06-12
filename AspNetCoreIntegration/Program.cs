@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
+using System.Threading.RateLimiting;
 using AspNetCoreIntegration.Binders;
 using AspNetCoreIntegration.Controllers;
 using AspNetCoreIntegration.Data;
@@ -20,6 +21,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Diagnostics;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -72,6 +74,17 @@ namespace AspNetCoreIntegration {
 
             builder.Services.AddSingleton<MvcActionDiagnosticCollector>();
 
+            #region RateLimit
+            builder.Services.AddRateLimiter(_ => _
+                .AddFixedWindowLimiter(policyName: "fixed", options =>
+                {
+                    options.PermitLimit = 4;
+                    options.Window = TimeSpan.FromSeconds(12);
+                    options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    options.QueueLimit = 2;
+                }));
+            #endregion
+
             //Autofac
             builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory(builder => {
                 // builder.RegisterType<Calculate>().As<ICalculate>()
@@ -95,6 +108,7 @@ namespace AspNetCoreIntegration {
 
             #endregion
 
+            app.UseRateLimiter();
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment()) {
                 app.UseSwagger();
@@ -108,7 +122,7 @@ namespace AspNetCoreIntegration {
             app.UseAuthentication();
             app.UseAuthorization();
 
-
+            
             app.MapControllers();
             using (var scope = app.Services.CreateScope()) {
                 var context = scope.ServiceProvider.GetRequiredService<AuthorContext>();
@@ -117,6 +131,11 @@ namespace AspNetCoreIntegration {
                 { Name = "Steve Smith", Twitter = "ardalis", GitHub = "ardalis", BlogUrl = "ardalis.com" });
                 context.SaveChanges();
             }
+            
+            static string GetTicks() => (DateTime.Now.Ticks & 0x11111).ToString("00000");
+
+            app.MapGet("/fixed", () => Results.Ok($"Hello {GetTicks()}"))
+                .RequireRateLimiting("fixed");
             app.Run();
 
             // Task.Factory.StartNew(async () => {
